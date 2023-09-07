@@ -1,0 +1,65 @@
+# The name of our workflow.
+name: CI/CD
+
+# What we put inside the "on" object determines which event(s) triggers the workflow (e.g. pushes, pull requests, merges, branch creation...)
+on:
+  # In our case, we want the workflow to be triggered every time there is a push to the repository...
+  push:
+    # ... but only on the main branch.
+    branches:
+      - main
+  # The line below also allows us to manually trigger the workflow from the Actions page of our GitHub repo.
+  workflow_dispatch:
+
+# A workflow is made up of one or more "jobs". Each job runs in a separate virtual machine.
+jobs:
+  # This is the name of our first (and only) job in this workflow. We can call it whatever we want.
+  test-build-deploy:
+    # This grants permissions required to make a deployment to GitHub Pages.
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+  
+    # Sets up an environment called github-pages with a corresponding page URL
+    environment:
+        name: github-pages
+        url: ${{ steps.deployment.outputs.page_url }}
+
+    # Specifies which operating system to run this job on (in this case Ubuntu, but we could also choose Windows or macOS)
+    runs-on: ubuntu-latest
+    
+    # This contains a list of the different steps in this job.
+    steps:
+      # This grabs the latest code from the main branch.
+      - name: Checkout
+        uses: actions/checkout@v3 # uses an action that has already been created
+
+      # This step sets up Node, including npm.
+      - name: Set up node
+        uses: actions/setup-node@v3 # yet another helpful action that's already been created
+        with:
+          node-version: "20.5.0"
+
+      # ... which then allows us to install the dependencies ... 
+      - run: npm ci 
+
+      # ... run the Jest unit tests ...
+      - run: npm test
+      
+      # ... and build our application! The resulting app is built to the /dist folder.
+      - run: npm run build
+      
+      # This sets up GitHub Pages...
+      - name: Set up Pages
+        uses: actions/configure-pages@v3
+      
+      # ... and then uploads the build artifact (the contents of the /dist folder) to GitHub Pages.
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: './dist'
+
+      # Finally, this step deploys our application to the live page!
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
